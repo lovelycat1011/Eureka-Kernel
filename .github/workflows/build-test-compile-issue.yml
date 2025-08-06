@@ -85,8 +85,8 @@ jobs:
           
           if ! grep -q "extern unsigned long uksm_zero_pfn __read_mostly;" include/asm-generic/pgtable.h; then
             sed -i '/^#ifdef CONFIG_UKSM$/i\
-extern unsigned long uksm_zero_pfn __read_mostly;\
-extern unsigned long zero_pfn __read_mostly;' include/asm-generic/pgtable.h
+            extern unsigned long uksm_zero_pfn __read_mostly;\
+            extern unsigned long zero_pfn __read_mostly;' include/asm-generic/pgtable.h
           fi
           
           sed -i '/^\s*extern __read_mostly unsigned long uksm_zero_pfn;$/d' include/asm-generic/pgtable.h
