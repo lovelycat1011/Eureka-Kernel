@@ -41,9 +41,9 @@ jobs:
       id: cache-proton
       with:
         path: proton-clang
-        key: proton-clang-${{ runner.os }}
+        key: proton-clang-test-${{ runner.os }}-v2
         restore-keys: |
-          proton-clang-${{ runner.os }}-
+          proton-clang-test-${{ runner.os }}-
 
     - name: Set up ccache
       uses: hendrikmuhs/ccache-action@v1.2
@@ -58,9 +58,19 @@ jobs:
           binutils make python3 libssl-dev build-essential \
           bc bison flex unzip ca-certificates
         
-        # Setup toolchain
+        # Setup toolchain - fix cache logic
         if [ "${{ steps.cache-proton.outputs.cache-hit }}" != 'true' ]; then
+          echo "Cache miss - cloning proton-clang..."
+          rm -rf proton-clang  # Remove any existing directory
           git clone https://github.com/kdrag0n/proton-clang --depth=1 -b master
+        else
+          echo "Cache hit - using cached proton-clang"
+        fi
+        
+        # Verify toolchain exists
+        if [ ! -d "proton-clang" ]; then
+          echo "Error: proton-clang directory not found!"
+          exit 1
         fi
         
         ln -sf proton-clang toolchain
@@ -75,8 +85,8 @@ jobs:
           
           if ! grep -q "extern unsigned long uksm_zero_pfn __read_mostly;" include/asm-generic/pgtable.h; then
             sed -i '/^#ifdef CONFIG_UKSM$/i\
-          extern unsigned long uksm_zero_pfn __read_mostly;\
-          extern unsigned long zero_pfn __read_mostly;' include/asm-generic/pgtable.h
+extern unsigned long uksm_zero_pfn __read_mostly;\
+extern unsigned long zero_pfn __read_mostly;' include/asm-generic/pgtable.h
           fi
           
           sed -i '/^\s*extern __read_mostly unsigned long uksm_zero_pfn;$/d' include/asm-generic/pgtable.h
