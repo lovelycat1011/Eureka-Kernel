@@ -515,136 +515,25 @@ jobs:
           echo "✅ DTBO copied successfully"
         fi
 
-    - name: Package AnyKernel3 Zip
-      run: |
-        cd kernel_zip/anykernel/
-        echo "Packaging and preparing for upload..."
-        
-        # Generate proper zip name based on variant
-        REV=${{ github.run_number }}
-        
-        if [ "${{ env.ONEUI3 }}" == "1" ]; then
-          ZIPNAME="Eureka_R${REV}_${{ env.CODENAME }}_${{ github.event.inputs.selinux_mode }}_S_KSUN.zip"
-        else
-          ZIPNAME="Eureka_R${REV}_${{ env.CODENAME }}_${{ github.event.inputs.selinux_mode }}_Legacy_QRS_KSUN.zip"
-        fi
-        
-        # Copy built kernel artifacts
-        if [ -f "../../arch/arm64/boot/Image" ]; then
-          cp -f ../../arch/arm64/boot/Image Image
-          echo "✅ Copied Image"
-        else
-          echo "❌ Image not found!"
-          exit 1
-        fi
-        
-        # Copy DTB if it exists
-        if [ -f "../../arch/arm64/boot/dtb.img" ]; then
-          if [ "${{ env.CODENAME }}" == "A3050" ] || [ "${{ env.CODENAME }}" == "M205" ]; then
-            cp -f ../../arch/arm64/boot/dtb.img ../${{ env.CODENAME }}_dtb.img
-          else
-            cp -f ../../arch/arm64/boot/dtb.img dtb.img
-            echo "✅ Copied dtb.img"
-          fi
-        fi
-        
-        # Use prebuilt DTBO
-        case "${{ env.CODENAME }}" in
-          "A105") cp -f ../dtbo/a10/dtbo.img dtbo.img 2>/dev/null && echo "✅ Copied A10 DTBO" || echo "⚠️ A10 DTBO not found" ;;
-          "A205") cp -f ../dtbo/a20/dtbo.img dtbo.img 2>/dev/null && echo "✅ Copied A20 DTBO" || echo "⚠️ A20 DTBO not found" ;;
-          "A202") cp -f ../dtbo/a20e/dtbo.img dtbo.img 2>/dev/null && echo "✅ Copied A20E DTBO" || echo "⚠️ A20E DTBO not found" ;;
-          "A305") cp -f ../dtbo/a30/dtbo.img dtbo.img 2>/dev/null && echo "✅ Copied A30 DTBO" || echo "⚠️ A30 DTBO not found" ;;
-          "A307") cp -f ../dtbo/a30s/dtbo.img dtbo.img 2>/dev/null && echo "✅ Copied A30S DTBO" || echo "⚠️ A30S DTBO not found" ;;
-          "A405") cp -f ../dtbo/a40/dtbo.img dtbo.img 2>/dev/null && echo "✅ Copied A40 DTBO" || echo "⚠️ A40 DTBO not found" ;;
-          "A3050") cp -f ../dtbo/a3050/dtbo.img dtbo.img 2>/dev/null && echo "✅ Copied A40S DTBO" || echo "⚠️ A40S DTBO not found" ;;
-          "M205") cp -f ../dtbo/m20/dtbo.img dtbo.img 2>/dev/null && echo "✅ Copied M20 DTBO" || echo "⚠️ M20 DTBO not found" ;;
-        esac
-        
-        # Create zip
-        if [ -e "dtb.img" ] && [ -e "dtbo.img" ]; then
-            zip -r9 $ZIPNAME META-INF tools anykernel.sh Image dtb.img dtbo.img version > /dev/null
-            echo "✅ Created zip with Image + DTB + DTBO"
-        elif [ -e "dtb.img" ]; then
-            mv anykernel.sh anykernel.sh.bak
-            sed '58,61d' anykernel.sh.bak > anykernel.sh
-            zip -r9 $ZIPNAME META-INF tools anykernel.sh Image dtb.img version > /dev/null
-            rm -f anykernel.sh; mv anykernel.sh.bak anykernel.sh; chmod a+x anykernel.sh
-            echo "✅ Created zip with Image + DTB (no DTBO)"
-        else
-            mv anykernel.sh anykernel.sh.bak
-            sed '53,61d' anykernel.sh.bak > anykernel.sh
-            zip -r9 $ZIPNAME META-INF tools anykernel.sh Image version > /dev/null
-            rm -f anykernel.sh; mv anykernel.sh.bak anykernel.sh
-            echo "✅ Created zip with Image only"
-        fi
-        
-        chmod 0777 $ZIPNAME
-        echo "ZIPNAME=${ZIPNAME}" >> $GITHUB_ENV
-        cd ../../
-
-    - name: Create boot.img using AIK
-      run: |
-        echo "✅ Creating a full boot.img by replacing the kernel..."
-        git clone --depth=1 https://github.com/SebaUbuntu/AIK-Linux-mirror AIK-Linux
-        
-        STOCK_BOOT_ZIP="prebuilt/boot.img.zip"
-        if [ ! -f "$STOCK_BOOT_ZIP" ]; then
-          echo "❌ Stock boot image zip not found. Skipping boot.img creation."
-          exit 0
-        fi
-
-        unzip "$STOCK_BOOT_ZIP"
-        
-        STOCK_BOOT_IMAGE="boot.img"
-        if [ ! -f "$STOCK_BOOT_IMAGE" ]; then
-          echo "❌ Failed to unzip or boot.img was not found in the zip archive."
-          exit 1
-        fi
-
-        cp "$STOCK_BOOT_IMAGE" AIK-Linux/boot.img
-        cd AIK-Linux
-        ./unpackimg.sh
-        cp ../arch/arm64/boot/Image split_img/boot.img-kernel
-        ./repackimg.sh
-        
-        FINAL_BOOT_FILENAME=""
-        if [ "${{ env.ONEUI3 }}" == "1" ]; then
-          FINAL_BOOT_FILENAME="ksun-oneui.img"
-        else
-          FINAL_BOOT_FILENAME="ksun-aosp.img"
-        fi
-        
-        mv image-new.img "../${FINAL_BOOT_FILENAME}"
-        echo "BOOT_IMG_FILENAME=${FINAL_BOOT_FILENAME}" >> $GITHUB_ENV
-        cd ..
-        echo "✅ Successfully created ${FINAL_BOOT_FILENAME}"
-
-    - name: Upload Kernel Artifacts
+    - name: Upload Kernel Image
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.ANDROID_VAR }}-${{ env.CODENAME }}-${{ github.event.inputs.selinux_mode }}-R${{ github.run_number }}
-        path: |
-          kernel_zip/anykernel/*.zip
-          ${{ env.BOOT_IMG_FILENAME }}
+        name: Kernel-Image-${{ env.CODENAME }}-${{ github.run_number }}
+        path: out/arch/arm64/boot/Image
         if-no-files-found: error
 
     - name: Generate Build Summary
+      if: always()
       run: |
         echo "## 🚀 Kernel Build Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Device Model:** ${{ env.CODENAME }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Android Variant:** ${{ env.ANDROID_VAR }}" >> $GITHUB_STEP_SUMMARY  
+        echo "**Android Variant:** ${{ env.ANDROID_VAR }}" >> $GITHUB_STEP_SUMMARY
         echo "**SELinux Mode:** ${{ github.event.inputs.selinux_mode }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Kernel Version:** Eureka R${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Defconfig:** ${{ env.KERNEL_DEFCONFIG }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Build Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Features:**" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ KernelSU-Next v1.0.9" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Scope-minimized hooks" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Compilation fixes applied" >> $GITHUB_STEP_SUMMARY
-        if [ "${{ env.ONEUI3 }}" == "1" ]; then
-          echo "- ✅ OneUI version" >> $GITHUB_STEP_SUMMARY
+        
+        if [[ ${{ job.status }} == 'success' ]]; then
+          echo "**Build Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
+          echo "**Artifact:** Kernel Image" >> $GITHUB_STEP_SUMMARY
         else
-          echo "- ✅ AOSP version" >> $GITHUB_STEP_SUMMARY
+          echo "**Build Status:** ❌ Failed" >> $GITHUB_STEP_SUMMARY
         fi
