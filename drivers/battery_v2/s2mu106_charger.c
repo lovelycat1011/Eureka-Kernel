@@ -40,7 +40,7 @@
 
 #define IVR_WORK_DELAY 50
 
-#define USB_FAST_CHARGE_SPEED 1200000 // 1200mA
+#define USB_FAST_CHARGE_SPEED 5000000 // 5000 mA or 5 amps (haha charging controller go brrrrrr)
 
 static char *s2mu106_supplied_to[] = {
 	"battery",
