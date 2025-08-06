@@ -149,6 +149,53 @@ jobs:
         make clean
         make mrproper
 
+    - name: Apply Compilation Fix Patches
+      run: |
+        echo "🔧 Applying compilation fix patches..."
+        
+        # Fix 1: include/asm-generic/pgtable.h 
+        if [ -f "include/asm-generic/pgtable.h" ]; then
+          echo "Patching include/asm-generic/pgtable.h..."
+          
+          # Find and add extern declarations before the first static inline function
+          # Add the extern declarations if they don't exist
+          if ! grep -q "extern unsigned long uksm_zero_pfn __read_mostly;" include/asm-generic/pgtable.h; then
+            sed -i '/^#ifdef CONFIG_UKSM$/i\
+extern unsigned long uksm_zero_pfn __read_mostly;\
+extern unsigned long zero_pfn __read_mostly;' include/asm-generic/pgtable.h
+          fi
+          
+          # Remove standalone extern lines inside functions (the problematic ones)
+          sed -i '/^\s*extern __read_mostly unsigned long uksm_zero_pfn;$/d' include/asm-generic/pgtable.h
+          sed -i '/^\s*extern unsigned long zero_pfn;$/d' include/asm-generic/pgtable.h
+          
+          echo "✅ Fixed include/asm-generic/pgtable.h"
+        fi
+        
+        # Fix 2: s6d7at0b_a10_lcd_ctrl.c - Fix brightness calculation
+        if [ -f "drivers/video/fbdev/exynos/dpu_7885/panels/s6d7at0b_a10_lcd_ctrl.c" ]; then
+          echo "Patching s6d7at0b_a10_lcd_ctrl.c brightness calculation..."
+          
+          # Replace the specific brightness calculation line
+          sed -i 's/int value = lcd->custom_brightness \* 1\.2;/int value = (lcd->custom_brightness * 12) \/ 10;/' \
+            drivers/video/fbdev/exynos/dpu_7885/panels/s6d7at0b_a10_lcd_ctrl.c
+            
+          echo "✅ Fixed s6d7at0b_a10_lcd_ctrl.c brightness calculation"
+        fi
+        
+        # Fix 3: decon_reg.c - Fix data type from double to long
+        if [ -f "drivers/video/fbdev/exynos/dpu_7885/decon_reg.c" ]; then
+          echo "Patching decon_reg.c data type..."
+          
+          # Replace double with long in decon_clocks_table declaration
+          sed -i 's/const double decon_clocks_table\[\]\[CLK_ID_MAX\]/const long decon_clocks_table[][CLK_ID_MAX]/' \
+            drivers/video/fbdev/exynos/dpu_7885/decon_reg.c
+            
+          echo "✅ Fixed decon_reg.c data type"
+        fi
+        
+        echo "✅ All compilation fix patches applied successfully!"
+
     - name: Configure Android Variant and SELinux
       run: |
         echo "Configuring for Android variant: ${{ github.event.inputs.android_variant }}"
@@ -418,13 +465,14 @@ jobs:
         echo "**Device Model:** ${{ env.CODENAME }}" >> $GITHUB_STEP_SUMMARY
         echo "**Android Variant:** ${{ env.ANDROID_VAR }}" >> $GITHUB_STEP_SUMMARY  
         echo "**SELinux Mode:** ${{ github.event.inputs.selinux_mode }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Kernel Version:** Eureka R15-Next" >> $GITHUB_STEP_SUMMARY
+        echo "**Kernel Version:** Eureka R${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
         echo "**Defconfig:** ${{ env.KERNEL_DEFCONFIG }}" >> $GITHUB_STEP_SUMMARY
         echo "**Build Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Features:**" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ KernelSU-Next v1.0.9" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Scope-minimized hooks" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Compilation fixes applied" >> $GITHUB_STEP_SUMMARY
         if [ "${{ env.ONEUI3 }}" == "1" ]; then
           echo "- ✅ OneUI version" >> $GITHUB_STEP_SUMMARY
         else
