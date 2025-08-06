@@ -161,8 +161,8 @@ jobs:
           # Add the extern declarations if they don't exist
           if ! grep -q "extern unsigned long uksm_zero_pfn __read_mostly;" include/asm-generic/pgtable.h; then
             sed -i '/^#ifdef CONFIG_UKSM$/i\
-extern unsigned long uksm_zero_pfn __read_mostly;\
-extern unsigned long zero_pfn __read_mostly;' include/asm-generic/pgtable.h
+            extern unsigned long uksm_zero_pfn __read_mostly;\
+            extern unsigned long zero_pfn __read_mostly;' include/asm-generic/pgtable.h
           fi
           
           # Remove standalone extern lines inside functions (the problematic ones)
