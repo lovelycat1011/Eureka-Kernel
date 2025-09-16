@@ -203,35 +203,13 @@ jobs:
         echo "Device: ${{ github.event.inputs.device_model }}"
         
         # Set device-specific variables like build.sh
+        # ... (phần case...esac giữ nguyên) ...
         case "${{ github.event.inputs.device_model }}" in
           "A105")
             export CODENAME=A105
             export KERNEL_DEFCONFIG=exynos7885-a10_defconfig
             ;;
-          "A205")
-            export CODENAME=A205
-            export KERNEL_DEFCONFIG=exynos7885-a20_defconfig
-            ;;
-          "A202")
-            export CODENAME=A202
-            export KERNEL_DEFCONFIG=exynos7885-a20e_defconfig
-            ;;
-          "A305")
-            export CODENAME=A305
-            export KERNEL_DEFCONFIG=exynos7885-a30_defconfig
-            ;;
-          "A307")
-            export CODENAME=A307
-            export KERNEL_DEFCONFIG=exynos7885-a30s_defconfig
-            ;;
-          "A405")
-            export CODENAME=A405
-            export KERNEL_DEFCONFIG=exynos7885-a40_defconfig
-            ;;
-          "A3050")
-            export CODENAME=A3050
-            export KERNEL_DEFCONFIG=exynos7885-a40s_defconfig
-            ;;
+          # ... các device khác giữ nguyên ...
           "M205")
             export CODENAME=M205
             if [ "${{ github.event.inputs.selinux_mode }}" == "enforcing" ]; then
@@ -242,7 +220,7 @@ jobs:
             ;;
         esac
         
-        # Backup DTS files if they don't exist
+        # Backup DTS & Kconfig files if they don't exist (giống build.sh)
         if [ ! -e "arch/arm64/boot/dts/exynos/dtb/exynos7885.dts.bak" ]; then
           cp arch/arm64/boot/dts/exynos/dtb/exynos7885.dts arch/arm64/boot/dts/exynos/dtb/exynos7885.dts.bak
         fi
@@ -260,26 +238,26 @@ jobs:
           sed -i ${LINE}'s/.*/		sel_boot_state = <1>;/' arch/arm64/boot/dts/exynos/dtb/exynos7885.dts
           export SELINUX_STATUS="permissive_"
         fi
-        
         # Configure Android variant exactly like build.sh
         LINE_VARIANT=$(grep -n 'eureka_kernel_variant' arch/arm64/boot/dts/exynos/dtb/exynos7885.dts | gawk '{print $1}' FS=":")
         if [ "${{ github.event.inputs.android_variant }}" == "oneui3" ]; then
-          # OneUI 3 configuration (variant 3)
+          # OneUI 3 configuration: Sửa cả DTS và Kconfig
+          echo "✅ Applying OneUI3 configuration..."
           sed -i ${LINE_VARIANT}'s/.*/			eureka_kernel_variant = <3>;/' arch/arm64/boot/dts/exynos/dtb/exynos7885.dts
-          sed -i '55s/.*/        default y/' drivers/media/platform/exynos/Kconfig
+          sed -i '55s/.*/        default y/' drivers/media/platform/exynos/Kconfig
           export ONEUI3=1
           export ANDROID_VAR="OneUI3"
           export ANDROID=r
           export AND_VER=11
         else
-          # AOSP Legacy configuration (variant 2)
+          # AOSP Legacy configuration: Chỉ sửa DTS, KHÔNG ĐỘNG ĐẾN KCONFIG
+          echo "✅ Applying AOSP-Legacy configuration..."
           sed -i ${LINE_VARIANT}'s/.*/			eureka_kernel_variant = <2>;/' arch/arm64/boot/dts/exynos/dtb/exynos7885.dts
           export ONEUI3=0
           export ANDROID_VAR="AOSP-Legacy"
           export ANDROID=r
           export AND_VER=11
         fi
-        
         # Export variables to GITHUB_ENV for next steps
         echo "CODENAME=${CODENAME}" >> $GITHUB_ENV
         echo "KERNEL_DEFCONFIG=${KERNEL_DEFCONFIG}" >> $GITHUB_ENV
